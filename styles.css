@@ -1,0 +1,87 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: Arial, sans-serif;
+}
+
+#gameCanvas {
+    border: 2px solid #333;
+    background-color: #001f3f;
+}
+
+#gameInfo {
+    color: white;
+    margin: 10px;
+    font-size: 20px;
+}
+
+#startButton {
+    padding: 10px 20px;
+    font-size: 18px;
+    margin: 10px;
+    cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+
+#startButton:hover {
+    background-color: #45a049;
+}
+
+#aegisStatus {
+    margin-top: 5px;
+    font-weight: bold;
+    text-shadow: 0 0 5px #00ff00;
+    color: #00ff00;
+    display: none;
+}
+
+@keyframes aegisGlow {
+    0% { text-shadow: 0 0 5px #00ff00; }
+    50% { text-shadow: 0 0 20px #00ff00; }
+    100% { text-shadow: 0 0 5px #00ff00; }
+}
+
+.aegis-active {
+    animation: aegisGlow 1s infinite;
+}
+
+#aegisWarning {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #00ff00;
+    font-family: Arial, sans-serif;
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    text-shadow: 0 0 10px #00ff00;
+    z-index: 1000;
+    display: none;
+}
+
+
+
+#level {
+    color: #FFD700;
+    font-weight: bold;
+    text-shadow: 0 0 5px #FFD700;
+}
+
+/* 新しいミサイルタイプのための視覚的フィードバック */
+@keyframes splitWarning {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.splitting-missile {
+    animation: splitWarning 1s infinite;
+}
