@@ -200,7 +200,7 @@ export class BomberSystem {
         this.canvas = canvas;
         this.bomber = null;
         this.bombs = [];
-        this.spawnInterval = 30000; // 30秒ごとに出現
+        this.spawnInterval = 10000; // 30秒ごとに出現
         this.lastSpawnTime = 0;
         this.minimumLevel = 6;
     }
