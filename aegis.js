@@ -6,7 +6,7 @@ class AegisSystem {
         this.launcher = launcher;
         this.active = false;
         this.timer = 0;
-        this.duration = 10 * 1000; // 30秒間
+        this.duration = 3 * 1000; // 30秒間
         this.baseFireRate = 100; // 基本発射間隔（ミリ秒）
         this.lastFireTime = 0;
         this.currentLevel = 1;
