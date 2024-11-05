@@ -36,6 +36,10 @@ class Game {
             color: '#4CAF50'
         };
 
+        // 発射間隔の基本値を設定
+        this.baseShotCooldown = 300; // 基本の発射間隔（ミリ秒）
+        this.lastShotTime = 0;
+
         // イージスシステム
         this.aegisSystem = new AegisSystem(this.launcher);
 
@@ -102,17 +106,61 @@ class Game {
         this.gameLoop();
     }
 
+    // レベルに応じた発射間隔を計算
+    calculateShotCooldown() {
+        const currentLevel = this.difficultySystem.getCurrentLevel(this.score);
+        // レベルが上がるごとに発射間隔を20ミリ秒ずつ短縮（最小100ミリ秒）
+        return Math.max(100, this.baseShotCooldown - (currentLevel - 1) * 20);
+    }
+
+    // 指定された角度で迎撃ミサイルを発射
+    fireInterceptor(angleOffset) {
+        const dx = this.mouseX - this.launcher.x;
+        const dy = this.mouseY - this.launcher.y;
+        const baseAngle = Math.atan2(dy, dx);
+
+        // 角度をラジアンに変換
+        const angleInRadians = (angleOffset * Math.PI) / 180;
+        const finalAngle = baseAngle + angleInRadians;
+
+        // 目標地点を計算
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const targetX = this.launcher.x + Math.cos(finalAngle) * distance;
+        const targetY = this.launcher.y + Math.sin(finalAngle) * distance;
+
+        this.interceptors.push(new Interceptor(
+            this.launcher.x,
+            this.launcher.y,
+            targetX,
+            targetY
+        ));
+    }
+
     shoot() {
         if (!this.gameRunning || !this.isMouseDown) return;
 
         const currentTime = Date.now();
-        if (currentTime - this.lastShotTime >= this.shotCooldown) {
-            this.interceptors.push(new Interceptor(
+        const shotCooldown = this.calculateShotCooldown();
+        const currentLevel = this.difficultySystem.getCurrentLevel(this.score);
+
+        if (currentTime - this.lastShotTime >= shotCooldown) {
+            if (currentLevel >= 4) {
+                // レベル4以上は3発同時発射
+                this.fireInterceptor(-10); // 左に10度
+                this.fireInterceptor(0);   // 中央
+                this.fireInterceptor(10);  // 右に10度
+            } else {
+                // レベル3以下は単発
+                this.fireInterceptor(0);
+            }
+
+            // エフェクトの追加（発射時の光など）
+            this.explosions.push(new Explosion(
                 this.launcher.x,
                 this.launcher.y,
-                this.mouseX,
-                this.mouseY
+                'interceptor'
             ));
+
             this.lastShotTime = currentTime;
         }
     }
@@ -122,10 +170,8 @@ class Game {
         this.score = newScore;
         this.scoreElement.textContent = this.score;
 
-        // 5000点ごとにイージスシステムを起動
-        if (Math.floor(this.score / 5000) > Math.floor(oldScore / 5000)) {
-            this.aegisSystem.activate();
-        }
+        // イージスシステムの確認と更新
+        this.aegisSystem.update(this.missiles, this.interceptors, this.explosions, this.score);
     }
 
     updateDifficultyDisplay() {
@@ -207,7 +253,7 @@ class Game {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         // イージスシステムの更新
-        this.aegisSystem.update(this.missiles, this.interceptors, this.explosions);
+        this.aegisSystem.update(this.missiles, this.interceptors, this.explosions, this.score);
 
         // 爆撃機システムの更新
         const currentTime = Date.now();
