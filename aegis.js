@@ -12,7 +12,7 @@ class AegisSystem {
         this.currentLevel = 1;
 
         // イージス発動のスコア間隔を調整
-        this.aegisActivationInterval = 3000; // 3000点ごとに発動
+        this.aegisActivationInterval = 6000; // 6000点ごとに発動
         this.lastActivationScore = 0;
     }
 
