@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>将棋ゲーム</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>将棋ゲーム</h1>
+
+        <!-- ゲームステータス -->
+        <div class="status">
+            <div id="gameStatus">あなたの番です</div>
+            <button id="resetButton">ゲームをリセット</button>
+        </div>
+
+        <!-- 対局画面全体 -->
+        <div class="game-container">
+            <!-- 相手（COM）の持ち駒 -->
+            <div class="captured-pieces opponent" id="opponentCaptured">
+                <div class="captured-section">
+                    <div class="captured-label">持ち駒</div>
+                    <div class="captured-grid" id="opponentCapturedGrid"></div>
+                </div>
+            </div>
+
+            <!-- 将棋盤 -->
+            <div class="board-container">
+                <!-- 段の表示 -->
+                <div class="rank-labels">
+                    <div>一</div>
+                    <div>二</div>
+                    <div>三</div>
+                    <div>四</div>
+                    <div>五</div>
+                    <div>六</div>
+                    <div>七</div>
+                    <div>八</div>
+                    <div>九</div>
+                </div>
+
+                <!-- メインの盤面 -->
+                <div class="board" id="board">
+                    <!-- JavaScriptで盤面が生成されます -->
+                </div>
+
+                <!-- 筋の表示 -->
+                <div class="file-labels">
+                    <div>9</div>
+                    <div>8</div>
+                    <div>7</div>
+                    <div>6</div>
+                    <div>5</div>
+                    <div>4</div>
+                    <div>3</div>
+                    <div>2</div>
+                    <div>1</div>
+                </div>
+            </div>
+
+            <!-- プレイヤーの持ち駒 -->
+            <div class="captured-pieces player" id="playerCaptured">
+                <div class="captured-section">
+                    <div class="captured-label">持ち駒</div>
+                    <div class="captured-grid" id="playerCapturedGrid"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 駒を成るときの確認ダイアログ -->
+        <div id="promotionDialog" class="promotion-dialog">
+            <div class="promotion-content">
+                <p>駒を成りますか？</p>
+                <div class="promotion-buttons">
+                    <button id="promoteYes">はい</button>
+                    <button id="promoteNo">いいえ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ゲーム終了時のダイアログ -->
+        <div id="gameOverDialog" class="game-over-dialog">
+            <div class="game-over-content">
+                <p id="gameOverMessage"></p>
+                <button id="newGameButton">新しいゲーム</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 駒の移動音 -->
+    <audio id="moveSound" preload="auto">
+        <source src="move.mp3" type="audio/mp3">
+    </audio>
+    <!-- 駒を取った時の音 -->
+    <audio id="captureSound" preload="auto">
+        <source src="capture.mp3" type="audio/mp3">
+    </audio>
+
+    <script src="main.js"></script>
+</body>
+</html>
