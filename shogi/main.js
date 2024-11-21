@@ -2,7 +2,7 @@ import { Board } from './board.js';
 import { ShogiAI } from './ai.js';
 import { PieceType, PieceKanji } from './pieces.js';
 
-class ShogiGame {
+export class ShogiGame {
     constructor() {
         this.board = new Board();
         this.ai = new ShogiAI('normal');
@@ -18,34 +18,6 @@ class ShogiGame {
     initializeGame() {
         this.setupEventListeners();
         this.updateBoard();
-        this.loadSounds();
-    }
-
-    // イベントリスナーの設定
-    setupEventListeners() {
-        // 盤面のクリックイベント
-        document.querySelectorAll('.cell').forEach(cell => {
-            cell.addEventListener('click', (e) => this.handleCellClick(e));
-        });
-
-        // リセットボタン
-        document.getElementById('resetButton').addEventListener('click', () => {
-            this.resetGame();
-        });
-
-        // 成り駒ダイアログのボタン
-        document.getElementById('promoteYes').addEventListener('click', () => {
-            this.handlePromotion(true);
-        });
-        document.getElementById('promoteNo').addEventListener('click', () => {
-            this.handlePromotion(false);
-        });
-    }
-
-    // 効果音の読み込み
-    loadSounds() {
-        this.moveSound = document.getElementById('moveSound');
-        this.captureSound = document.getElementById('captureSound');
     }
 
     // セルのクリック処理
@@ -63,7 +35,7 @@ class ShogiGame {
 
             // 移動可能な場所をクリックした場合
             if (this.isValidMove(row, col)) {
-                this.makeMove(selectedRow, selectedCol, row, col);
+                this.moveProcess(selectedRow, selectedCol, row, col);
             } else {
                 // 別の自分の駒を選択した場合
                 const newPiece = this.board.getPiece(row, col);
@@ -101,10 +73,8 @@ class ShogiGame {
         return this.validMoves.some(([r, c]) => r === row && c === col);
     }
 
-    // 駒の移動
-    async makeMove(fromRow, fromCol, toRow, toCol) {
-        const piece = this.board.getPiece(fromRow, fromCol);
-        const targetPiece = this.board.getPiece(toRow, toCol);
+    // 移動処理のメインロジック
+    async moveProcess(fromRow, fromCol, toRow, toCol) {
         const canPromote = this.board.canPromote(fromRow, fromCol, toRow, toCol);
         const mustPromote = this.board.mustPromote(fromRow, fromCol, toRow);
 
@@ -113,21 +83,17 @@ class ShogiGame {
             if (mustPromote) {
                 promote = true;
             } else {
-                // 成るかどうかの選択
                 promote = await this.showPromotionDialog();
             }
         }
 
         // 移動を実行
+        this.makeMove(fromRow, fromCol, toRow, toCol, promote);
+    }
+
+    // 駒の移動
+    makeMove(fromRow, fromCol, toRow, toCol, promote = false) {
         this.board.movePiece(fromRow, fromCol, toRow, toCol, promote);
-
-        // 効果音の再生
-        if (targetPiece.type !== PieceType.EMPTY) {
-            this.captureSound.play();
-        } else {
-            this.moveSound.play();
-        }
-
         this.lastMove = { from: [fromRow, fromCol], to: [toRow, toCol] };
         this.clearSelection();
         this.playerTurn = false;
@@ -159,9 +125,6 @@ class ShogiGame {
             this.lastMove = { to: move.to, isDrop: true };
         }
 
-        // 効果音の再生
-        this.moveSound.play();
-
         this.updateBoard();
         this.playerTurn = true;
 
@@ -184,8 +147,24 @@ class ShogiGame {
                 resolve(promote);
             };
 
-            document.getElementById('promoteYes').onclick = () => handleResponse(true);
-            document.getElementById('promoteNo').onclick = () => handleResponse(false);
+            // イベントリスナーは一時的に設定
+            const yesButton = document.getElementById('promoteYes');
+            const noButton = document.getElementById('promoteNo');
+
+            const yesHandler = () => {
+                handleResponse(true);
+                yesButton.removeEventListener('click', yesHandler);
+                noButton.removeEventListener('click', noHandler);
+            };
+
+            const noHandler = () => {
+                handleResponse(false);
+                yesButton.removeEventListener('click', yesHandler);
+                noButton.removeEventListener('click', noHandler);
+            };
+
+            yesButton.addEventListener('click', yesHandler);
+            noButton.addEventListener('click', noHandler);
         });
     }
 
@@ -251,7 +230,7 @@ class ShogiGame {
         }
     }
 
-    // updateCapturedPieces メソッドも修正
+    // 持ち駒の表示更新
     updateCapturedPieces() {
         const updateCapturedGrid = (pieces, gridId) => {
             const grid = document.getElementById(gridId);
@@ -279,34 +258,6 @@ class ShogiGame {
         updateCapturedGrid(this.board.capturedPieces.opponent, 'opponentCapturedGrid');
     }
 
-    // 持ち駒の表示更新
-    updateCapturedPieces() {
-        const updateCapturedGrid = (pieces, gridId) => {
-            const grid = document.getElementById(gridId);
-            grid.innerHTML = '';
-
-            // 持ち駒を種類ごとにグループ化
-            const groupedPieces = pieces.reduce((acc, piece) => {
-                acc[piece.type] = (acc[piece.type] || 0) + 1;
-                return acc;
-            }, {});
-
-            // グループ化された持ち駒を表示
-            for (const [type, count] of Object.entries(groupedPieces)) {
-                const pieceDiv = document.createElement('div');
-                pieceDiv.className = 'piece captured-piece';
-                pieceDiv.textContent = PieceKanji[parseInt(type)];
-                if (count > 1) {
-                    pieceDiv.textContent += `×${count}`;
-                }
-                grid.appendChild(pieceDiv);
-            }
-        };
-
-        updateCapturedGrid(this.board.capturedPieces.player, 'playerCapturedGrid');
-        updateCapturedGrid(this.board.capturedPieces.opponent, 'opponentCapturedGrid');
-    }
-
     // ゲームのリセット
     resetGame() {
         this.board = new Board();
@@ -320,9 +271,12 @@ class ShogiGame {
         const gameOverDialog = document.getElementById('gameOverDialog');
         gameOverDialog.style.display = 'none';
     }
-}
 
-// ゲームの開始
-document.addEventListener('DOMContentLoaded', () => {
-    new ShogiGame();
-});
+    // イベントリスナーの設定
+    setupEventListeners() {
+        const resetButton = document.getElementById('resetButton');
+        if (resetButton) {
+            resetButton.addEventListener('click', () => this.resetGame());
+        }
+    }
+}
