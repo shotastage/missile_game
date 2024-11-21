@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>テトリス風ゲーム</title>
+    <style>
+        .game-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        .game-board {
+            border: 2px solid #333;
+            background-color: #fff;
+        }
+
+        .game-info {
+            margin-left: 20px;
+            padding: 20px;
+            background-color: #fff;
+            border: 2px solid #333;
+        }
+
+        .cell {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        .row {
+            display: flex;
+        }
+
+        .piece-I { background-color: #00f0f0; }
+        .piece-O { background-color: #f0f000; }
+        .piece-T { background-color: #a000f0; }
+        .piece-S { background-color: #00f000; }
+        .piece-Z { background-color: #f00000; }
+        .piece-J { background-color: #0000f0; }
+        .piece-L { background-color: #f0a000; }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div>
+            <div id="board" class="game-board"></div>
+        </div>
+        <div class="game-info">
+            <h2>スコア: <span id="score">0</span></h2>
+            <p>操作方法:</p>
+            <ul>
+                <li>←→: 左右移動</li>
+                <li>↑: 回転</li>
+                <li>↓: 下に移動</li>
+                <li>スペース: 即着地</li>
+                <li>P: 一時停止/再開</li>
+            </ul>
+            <button onclick="startGame()">ゲーム開始</button>
+            <button id="pauseButton" onclick="togglePause()" disabled>一時停止
+        </div>
+    </div>
+
+    <script>
+        const BOARD_ROWS = 20;
+        const BOARD_COLS = 10;
+        const EMPTY = 0;
+        
+        // テトリミノの形状定義
+        const PIECES = {
+            'I': {
+                shape: [[1, 1, 1, 1]],
+                className: 'piece-I'
+            },
+            'O': {
+                shape: [[1, 1], [1, 1]],
+                className: 'piece-O'
+            },
+            'T': {
+                shape: [[0, 1, 0], [1, 1, 1]],
+                className: 'piece-T'
+            },
+            'S': {
+                shape: [[0, 1, 1], [1, 1, 0]],
+                className: 'piece-S'
+            },
+            'Z': {
+                shape: [[1, 1, 0], [0, 1, 1]],
+                className: 'piece-Z'
+            },
+            'J': {
+                shape: [[1, 0, 0], [1, 1, 1]],
+                className: 'piece-J'
+            },
+            'L': {
+                shape: [[0, 0, 1], [1, 1, 1]],
+                className: 'piece-L'
+            }
+        };
+
+        let board = [];
+        let currentPiece = null;
+        let currentPiecePosition = { x: 0, y: 0 };
+        let score = 0;
+        let gameInterval = null;
+        let isGameOver = false;
+        let isPaused = false;
+
+        // ボードの初期化
+        function initializeBoard() {
+            board = Array(BOARD_ROWS).fill().map(() => Array(BOARD_COLS).fill(EMPTY));
+            renderBoard();
+        }
+
+        // ボードの描画
+        function renderBoard() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
+
+            // 現在のボードの状態をコピー
+            let displayBoard = board.map(row => [...row]);
+
+            // 現在のピースを表示用ボードに追加
+            if (currentPiece) {
+                const shape = currentPiece.shape;
+                for (let y = 0; y < shape.length; y++) {
+                    for (let x = 0; x < shape[y].length; x++) {
+                        if (shape[y][x]) {
+                            const boardY = currentPiecePosition.y + y;
+                            const boardX = currentPiecePosition.x + x;
+                            if (boardY >= 0 && boardY < BOARD_ROWS && boardX >= 0 && boardX < BOARD_COLS) {
+                                displayBoard[boardY][boardX] = currentPiece.type;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ボードの描画
+            displayBoard.forEach(row => {
+                const rowElement = document.createElement('div');
+                rowElement.className = 'row';
+                row.forEach(cell => {
+                    const cellElement = document.createElement('div');
+                    cellElement.className = 'cell';
+                    if (cell !== EMPTY) {
+                        cellElement.classList.add(PIECES[cell].className);
+                    }
+                    rowElement.appendChild(cellElement);
+                });
+                boardElement.appendChild(rowElement);
+            });
+        }
+
+        // 新しいピースの生成
+        function generateNewPiece() {
+            const pieces = Object.keys(PIECES);
+            const randomPiece = pieces[Math.floor(Math.random() * pieces.length)];
+            currentPiece = {
+                shape: PIECES[randomPiece].shape,
+                type: randomPiece
+            };
+            currentPiecePosition = {
+                x: Math.floor((BOARD_COLS - currentPiece.shape[0].length) / 2),
+                y: -currentPiece.shape.length
+            };
+
+            if (!isValidMove(currentPiecePosition.x, currentPiecePosition.y)) {
+                gameOver();
+            }
+        }
+
+        // 移動が有効かチェック
+        function isValidMove(newX, newY) {
+            for (let y = 0; y < currentPiece.shape.length; y++) {
+                for (let x = 0; x < currentPiece.shape[y].length; x++) {
+                    if (currentPiece.shape[y][x]) {
+                        const boardX = newX + x;
+                        const boardY = newY + y;
+
+                        if (boardX < 0 || boardX >= BOARD_COLS || 
+                            boardY >= BOARD_ROWS ||
+                            (boardY >= 0 && board[boardY][boardX] !== EMPTY)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        // ピースの回転
+        function rotatePiece() {
+            const newShape = [];
+            for (let i = 0; i < currentPiece.shape[0].length; i++) {
+                newShape.push([]);
+                for (let j = currentPiece.shape.length - 1; j >= 0; j--) {
+                    newShape[i].push(currentPiece.shape[j][i]);
+                }
+            }
+
+            const originalShape = currentPiece.shape;
+            currentPiece.shape = newShape;
+
+            if (!isValidMove(currentPiecePosition.x, currentPiecePosition.y)) {
+                currentPiece.shape = originalShape;
+            }
+            renderBoard();
+        }
+
+        // ピースの固定
+        function lockPiece() {
+            for (let y = 0; y < currentPiece.shape.length; y++) {
+                for (let x = 0; x < currentPiece.shape[y].length; x++) {
+                    if (currentPiece.shape[y][x]) {
+                        const boardY = currentPiecePosition.y + y;
+                        const boardX = currentPiecePosition.x + x;
+                        if (boardY >= 0) {
+                            board[boardY][boardX] = currentPiece.type;
+                        }
+                    }
+                }
+            }
+
+            clearLines();
+            generateNewPiece();
+            renderBoard();
+        }
+
+        // 列のクリア処理
+        function clearLines() {
+            let linesCleared = 0;
+
+            for (let y = BOARD_ROWS - 1; y >= 0; y--) {
+                if (board[y].every(cell => cell !== EMPTY)) {
+                    board.splice(y, 1);
+                    board.unshift(Array(BOARD_COLS).fill(EMPTY));
+                    linesCleared++;
+                    y++;
+                }
+            }
+
+            if (linesCleared > 0) {
+                score += linesCleared * 100;
+                document.getElementById('score').textContent = score;
+            }
+        }
+
+        // ゲームオーバー処理
+        function gameOver() {
+            isGameOver = true;
+            clearInterval(gameInterval);
+            document.getElementById('pauseButton').disabled = true;
+            alert('ゲームオーバー！ スコア: ' + score);
+        }
+
+        // 一時停止の切り替え
+        function togglePause() {
+            if (isGameOver) return;
+            
+            isPaused = !isPaused;
+            const pauseButton = document.getElementById('pauseButton');
+            
+            if (isPaused) {
+                clearInterval(gameInterval);
+                pauseButton.textContent = '再開';
+                // 一時停止中の表示
+                const boardElement = document.getElementById('board');
+                const pauseOverlay = document.createElement('div');
+                pauseOverlay.id = 'pause-overlay';
+                pauseOverlay.style.position = 'absolute';
+                pauseOverlay.style.top = '50%';
+                pauseOverlay.style.left = '50%';
+                pauseOverlay.style.transform = 'translate(-50%, -50%)';
+                pauseOverlay.style.background = 'rgba(0, 0, 0, 0.7)';
+                pauseOverlay.style.color = 'white';
+                pauseOverlay.style.padding = '20px';
+                pauseOverlay.style.borderRadius = '5px';
+                pauseOverlay.textContent = '一時停止中';
+                boardElement.style.position = 'relative';
+                boardElement.appendChild(pauseOverlay);
+            } else {
+                gameInterval = setInterval(() => {
+                    if (!isValidMove(currentPiecePosition.x, currentPiecePosition.y + 1)) {
+                        lockPiece();
+                    } else {
+                        currentPiecePosition.y++;
+                        renderBoard();
+                    }
+                }, 1000);
+                pauseButton.textContent = '一時停止';
+                // 一時停止表示を削除
+                const pauseOverlay = document.getElementById('pause-overlay');
+                if (pauseOverlay) {
+                    pauseOverlay.remove();
+                }
+            }
+        }
+
+        // ゲーム開始
+        function startGame() {
+            initializeBoard();
+            score = 0;
+            document.getElementById('score').textContent = score;
+            isGameOver = false;
+            isPaused = false;
+            document.getElementById('pauseButton').disabled = false;
+            document.getElementById('pauseButton').textContent = '一時停止';
+            const pauseOverlay = document.getElementById('pause-overlay');
+            if (pauseOverlay) {
+                pauseOverlay.remove();
+            }
+            generateNewPiece();
+
+            if (gameInterval) {
+                clearInterval(gameInterval);
+            }
+
+            gameInterval = setInterval(() => {
+                if (!isValidMove(currentPiecePosition.x, currentPiecePosition.y + 1)) {
+                    lockPiece();
+                } else {
+                    currentPiecePosition.y++;
+                    renderBoard();
+                }
+            }, 1000);
+        }
+
+        // キーボード操作
+        document.addEventListener('keydown', (event) => {
+            if (isGameOver) return;
+            
+            // Pキーで一時停止/再開
+            if (event.key.toLowerCase() === 'p') {
+                togglePause();
+                return;
+            }
+            
+            // 一時停止中は他のキー操作を無効化
+            if (isPaused) return;
+
+            switch (event.key) {
+                case 'ArrowLeft':
+                    if (isValidMove(currentPiecePosition.x - 1, currentPiecePosition.y)) {
+                        currentPiecePosition.x--;
+                        renderBoard();
+                    }
+                    break;
+                case 'ArrowRight':
+                    if (isValidMove(currentPiecePosition.x + 1, currentPiecePosition.y)) {
+                        currentPiecePosition.x++;
+                        renderBoard();
+                    }
+                    break;
+                case 'ArrowDown':
+                    if (isValidMove(currentPiecePosition.x, currentPiecePosition.y + 1)) {
+                        currentPiecePosition.y++;
+                        renderBoard();
+                    }
+                    break;
+                case 'ArrowUp':
+                    rotatePiece();
+                    break;
+                case ' ':
+                    event.preventDefault(); // ページのスクロールを防ぐ
+                    let nextY = currentPiecePosition.y;
+                    while (isValidMove(currentPiecePosition.x, nextY + 1)) {
+                        nextY++;
+                    }
+                    currentPiecePosition.y = nextY;
+                    lockPiece();
+                    break;
+            }
+        });
+    </script>
+</body>
+</html>
