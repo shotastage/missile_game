@@ -251,6 +251,34 @@ class ShogiGame {
         }
     }
 
+    // updateCapturedPieces メソッドも修正
+    updateCapturedPieces() {
+        const updateCapturedGrid = (pieces, gridId) => {
+            const grid = document.getElementById(gridId);
+            grid.innerHTML = '';
+
+            // 持ち駒を種類ごとにグループ化
+            const groupedPieces = pieces.reduce((acc, piece) => {
+                acc[piece.type] = (acc[piece.type] || 0) + 1;
+                return acc;
+            }, {});
+
+            // グループ化された持ち駒を表示
+            for (const [type, count] of Object.entries(groupedPieces)) {
+                const pieceDiv = document.createElement('div');
+                pieceDiv.className = 'piece';
+                pieceDiv.textContent = PieceKanji[parseInt(type)];
+                if (count > 1) {
+                    pieceDiv.textContent += `×${count}`;
+                }
+                grid.appendChild(pieceDiv);
+            }
+        };
+
+        updateCapturedGrid(this.board.capturedPieces.player, 'playerCapturedGrid');
+        updateCapturedGrid(this.board.capturedPieces.opponent, 'opponentCapturedGrid');
+    }
+
     // 持ち駒の表示更新
     updateCapturedPieces() {
         const updateCapturedGrid = (pieces, gridId) => {
