@@ -92,11 +92,14 @@ export class ShogiGame {
     }
 
     // 駒の移動
-    makeMove(fromRow, fromCol, toRow, toCol, promote = false) {
+    async makeMove(fromRow, fromCol, toRow, toCol, promote = false) {
         this.board.movePiece(fromRow, fromCol, toRow, toCol, promote);
         this.lastMove = { from: [fromRow, fromCol], to: [toRow, toCol] };
         this.clearSelection();
         this.playerTurn = false;
+
+        // プレイヤーの手が終わった直後にUIを更新
+        this.updateBoard();
 
         // 詰みチェック
         if (this.board.isCheckmate(false)) {
@@ -105,34 +108,53 @@ export class ShogiGame {
             return;
         }
 
+        // AIの思考状態を示すために再度updateBoardを呼び出し
+        this.updateBoard();
+
         // AIの手番
-        setTimeout(() => this.makeAIMove(), 500);
+        // setTimeout を使って非同期に実行することで、UIの更新が確実に行われるようにする
+        setTimeout(() => this.makeAIMove(), 100);
     }
 
     // AIの手を実行
     async makeAIMove() {
-        const move = this.ai.getBestMove(this.board);
+        if (this.gameOver) return;
 
-        if (move.type === 'move') {
-            this.board.movePiece(
-                move.from[0], move.from[1],
-                move.to[0], move.to[1],
-                move.promote
-            );
-            this.lastMove = { from: move.from, to: move.to };
-        } else if (move.type === 'drop') {
-            this.board.dropPiece(move.to[0], move.to[1], move.piece);
-            this.lastMove = { to: move.to, isDrop: true };
-        }
+        try {
+            // AIの思考前の状態を更新
+            this.updateBoard();
 
-        this.updateBoard();
-        this.playerTurn = true;
+            const move = this.ai.getBestMove(this.board);
 
-        // 詰みチェック
-        if (this.board.isCheckmate(true)) {
-            this.gameOver = true;
-            this.showGameOverDialog('コンピュータの勝ちです');
-            return;
+            if (move.type === 'move') {
+                this.board.movePiece(
+                    move.from[0], move.from[1],
+                    move.to[0], move.to[1],
+                    move.promote
+                );
+                this.lastMove = { from: move.from, to: move.to };
+            } else if (move.type === 'drop') {
+                this.board.dropPiece(move.to[0], move.to[1], move.piece);
+                this.lastMove = { to: move.to, isDrop: true };
+            }
+
+            // AIの手の後、プレイヤーのターンに切り替え
+            this.playerTurn = true;
+
+            // 最終的なUI更新
+            this.updateBoard();
+
+            // 詰みチェック
+            if (this.board.isCheckmate(true)) {
+                this.gameOver = true;
+                this.showGameOverDialog('コンピュータの勝ちです');
+                return;
+            }
+        } catch (error) {
+            console.error('AIの思考中にエラーが発生しました:', error);
+            // エラーが発生した場合でもプレイヤーのターンに戻す
+            this.playerTurn = true;
+            this.updateBoard();
         }
     }
 
@@ -225,8 +247,13 @@ export class ShogiGame {
         const statusElement = document.getElementById('gameStatus');
         if (this.gameOver) {
             statusElement.textContent = '対局終了';
+            statusElement.classList.remove('thinking');
+        } else if (this.playerTurn) {
+            statusElement.textContent = 'あなたの番です';
+            statusElement.classList.remove('thinking');
         } else {
-            statusElement.textContent = this.playerTurn ? 'あなたの番です' : 'コンピュータの番です';
+            statusElement.textContent = 'コンピュータが思考中です...';
+            statusElement.classList.add('thinking');
         }
     }
 

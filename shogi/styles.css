@@ -320,3 +320,29 @@ button:hover {
     clip: rect(0, 0, 0, 0);
     border: 0;
 }
+
+#gameStatus {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #2c3e50;
+    min-width: 250px;
+}
+
+@keyframes thinking {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+#gameStatus:contains("思考中") {
+    animation: thinking 1.5s ease-in-out infinite;
+}
+
+@keyframes thinking {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+.thinking {
+    animation: thinking 1.5s ease-in-out infinite;
+}
