@@ -119,6 +119,7 @@ export class Board {
   }
 
   // 合法手の生成
+  // board.js の getValidMoves メソッドを修正
   getValidMoves(row, col) {
     const piece = this.getPiece(row, col);
     if (piece.type === PieceType.EMPTY) return [];
@@ -126,8 +127,8 @@ export class Board {
     const moves = [];
     const pieceMoves = PieceMoves[piece.type](piece.isPlayer);
 
+    // 長距離移動の処理
     if (pieceMoves.long) {
-      // 長距離移動できる駒（飛車、角、香車など）
       for (const direction of pieceMoves.long) {
         let newRow = row + direction[0];
         let newCol = col + direction[1];
@@ -149,18 +150,19 @@ export class Board {
     }
 
     // 1マス移動の処理
-    const shortMoves = pieceMoves.short || pieceMoves;
-    for (const direction of shortMoves) {
-      const newRow = row + direction[0];
-      const newCol = col + direction[1];
+    if (pieceMoves.short) {
+      for (const direction of pieceMoves.short) {
+        const newRow = row + direction[0];
+        const newCol = col + direction[1];
 
-      if (this.isOnBoard(newRow, newCol)) {
-        const targetPiece = this.getPiece(newRow, newCol);
-        if (
-          targetPiece.type === PieceType.EMPTY ||
-          targetPiece.isPlayer !== piece.isPlayer
-        ) {
-          moves.push([newRow, newCol]);
+        if (this.isOnBoard(newRow, newCol)) {
+          const targetPiece = this.getPiece(newRow, newCol);
+          if (
+            targetPiece.type === PieceType.EMPTY ||
+            targetPiece.isPlayer !== piece.isPlayer
+          ) {
+            moves.push([newRow, newCol]);
+          }
         }
       }
     }
