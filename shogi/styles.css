@@ -346,3 +346,52 @@ button:hover {
 .thinking {
     animation: thinking 1.5s ease-in-out infinite;
 }
+
+
+/* 持ち駒エリアのスタイリング */
+.captured-pieces {
+    width: 200px;
+    background: rgba(222, 184, 135, 0.3);
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.captured-section {
+    margin-bottom: 10px;
+}
+
+.captured-label {
+    font-weight: bold;
+    margin-bottom: 5px;
+    text-align: center;
+}
+
+.captured-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+}
+
+.captured-piece {
+    width: 40px;
+    height: 40px;
+    font-size: 0.9em;
+    cursor: pointer;
+    background: #FFE4B5;
+    border: 1px solid #8B4513;
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+#playerCapturedGrid .captured-piece:hover {
+    transform: scale(1.1);
+    background-color: #f0d4a8;
+}
+
+#playerCapturedGrid .captured-piece.selected {
+    background-color: #d4a76a;
+    transform: scale(1.1);
+}

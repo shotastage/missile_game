@@ -7,6 +7,7 @@ export class ShogiGame {
         this.board = new Board();
         this.ai = new ShogiAI('normal');
         this.selectedCell = null;
+        this.selectedCapturedPiece = null;
         this.playerTurn = true;
         this.gameOver = false;
         this.validMoves = [];
@@ -28,16 +29,22 @@ export class ShogiGame {
         const row = parseInt(cell.dataset.row);
         const col = parseInt(cell.dataset.col);
 
+        // 持ち駒が選択されている場合
+        if (this.selectedCapturedPiece) {
+            if (this.isValidMove(row, col)) {
+                this.dropCapturedPiece(row, col);
+            }
+            this.clearSelection();
+            return;
+        }
+
         // 既に駒が選択されている場合
         if (this.selectedCell) {
             const [selectedRow, selectedCol] = this.selectedCell;
-            const piece = this.board.getPiece(selectedRow, selectedCol);
 
-            // 移動可能な場所をクリックした場合
             if (this.isValidMove(row, col)) {
                 this.moveProcess(selectedRow, selectedCol, row, col);
             } else {
-                // 別の自分の駒を選択した場合
                 const newPiece = this.board.getPiece(row, col);
                 if (newPiece.type !== PieceType.EMPTY && newPiece.isPlayer) {
                     this.selectCell(row, col);
@@ -54,6 +61,34 @@ export class ShogiGame {
         }
     }
 
+    // 持ち駒のクリックハンドラ
+    handleCapturedPieceClick(event) {
+        if (!this.playerTurn || this.gameOver) return;
+
+        const pieceDiv = event.target.closest('.piece');
+        if (!pieceDiv) return;
+
+        const pieceType = this.getPieceTypeFromKanji(pieceDiv.textContent);
+        if (!pieceType) return;
+
+        // 既に持ち駒が選択されている場合、選択を解除
+        if (this.selectedCapturedPiece) {
+            this.clearSelection();
+        }
+
+        // 新しい持ち駒を選択
+        this.selectedCapturedPiece = pieceType;
+        pieceDiv.classList.add('selected');
+
+        // 配置可能な場所を表示
+        this.validMoves = this.board.getValidDropPositions({
+            type: pieceType,
+            isPlayer: true
+        });
+
+        this.updateBoard();
+    }
+
     // 駒の選択
     selectCell(row, col) {
         this.selectedCell = [row, col];
@@ -64,7 +99,14 @@ export class ShogiGame {
     // 選択の解除
     clearSelection() {
         this.selectedCell = null;
+        this.selectedCapturedPiece = null;
         this.validMoves = [];
+
+        // 選択状態のクラスを解除
+        document.querySelectorAll('.piece.selected').forEach(piece => {
+            piece.classList.remove('selected');
+        });
+
         this.updateBoard();
     }
 
@@ -89,6 +131,29 @@ export class ShogiGame {
 
         // 移動を実行
         this.makeMove(fromRow, fromCol, toRow, toCol, promote);
+    }
+
+    // 持ち駒を配置
+    dropCapturedPiece(row, col) {
+        const piece = {
+            type: this.selectedCapturedPiece,
+            isPlayer: true
+        };
+
+        if (this.board.dropPiece(row, col, piece)) {
+            this.playerTurn = false;
+            this.lastMove = { to: [row, col], isDrop: true };
+            this.updateBoard();
+
+            // 詰みチェック
+            if (this.board.isCheckmate(false)) {
+                this.gameOver = true;
+                this.showGameOverDialog('あなたの勝ちです！');
+                return;
+            }
+
+            setTimeout(() => this.makeAIMove(), 100);
+        }
     }
 
     // 駒の移動
@@ -198,6 +263,18 @@ export class ShogiGame {
         dialog.style.display = 'flex';
     }
 
+    // 駒の種類を漢字から取得
+    getPieceTypeFromKanji(kanji) {
+        // 複数の駒がある場合（例：「歩×2」）、最初の文字だけを使用
+        const firstKanji = kanji.charAt(0);
+        for (const [type, symbol] of Object.entries(PieceKanji)) {
+            if (symbol === firstKanji) {
+                return parseInt(type);
+            }
+        }
+        return null;
+    }
+
     // 盤面の更新
     updateBoard() {
         const cells = document.querySelectorAll('.cell');
@@ -263,7 +340,7 @@ export class ShogiGame {
             const grid = document.getElementById(gridId);
             grid.innerHTML = '';
 
-            // 持ち駒を種類ごとにグループ化
+            // 持ち駒をグループ化
             const groupedPieces = pieces.reduce((acc, piece) => {
                 acc[piece.type] = (acc[piece.type] || 0) + 1;
                 return acc;
@@ -272,7 +349,10 @@ export class ShogiGame {
             // グループ化された持ち駒を表示
             for (const [type, count] of Object.entries(groupedPieces)) {
                 const pieceDiv = document.createElement('div');
-                pieceDiv.className = 'piece';
+                pieceDiv.className = 'piece captured-piece';
+                if (gridId === 'playerCapturedGrid') {
+                    pieceDiv.addEventListener('click', (e) => this.handleCapturedPieceClick(e));
+                }
                 pieceDiv.textContent = PieceKanji[parseInt(type)];
                 if (count > 1) {
                     pieceDiv.textContent += `×${count}`;
@@ -289,6 +369,7 @@ export class ShogiGame {
     resetGame() {
         this.board = new Board();
         this.selectedCell = null;
+        this.selectedCapturedPiece = null;
         this.playerTurn = true;
         this.gameOver = false;
         this.validMoves = [];
