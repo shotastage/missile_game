@@ -78,6 +78,11 @@ export class Board {
     const piece = this.getPiece(fromRow, fromCol);
     const targetPiece = this.getPiece(toRow, toCol);
 
+    // 王を取る場合は即座に勝利とする
+    if (targetPiece.type === PieceType.KING) {
+      return { type: "win", winner: piece.isPlayer ? "player" : "opponent" };
+    }
+
     // 駒を取る場合
     if (targetPiece.type !== PieceType.EMPTY) {
       const capturedPiece = {
@@ -99,7 +104,7 @@ export class Board {
     );
     this.setPiece(fromRow, fromCol, { type: PieceType.EMPTY, isPlayer: true });
 
-    return true;
+    return { type: "normal" };
   }
 
   // 持ち駒を打つ

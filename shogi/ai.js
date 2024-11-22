@@ -1,48 +1,101 @@
-import { PieceType, PieceValues } from './pieces.js';
+import { PieceType, PieceValues, PieceKanji } from './pieces.js';
 
 export class ShogiAI {
     constructor(difficulty = 'normal') {
         this.difficulty = difficulty;
         this.initializeParameters();
+        this.moveCount = 0;
+        this.timeLimit = 15000; // 15秒の制限時間
     }
 
-    // AIの難易度に応じたパラメータを設定
     initializeParameters() {
         switch (this.difficulty) {
             case 'easy':
-                this.searchDepth = 2;
+                this.maxDepth = 2;
                 this.usePositionalEvaluation = false;
                 break;
             case 'normal':
-                this.searchDepth = 3;
+                this.maxDepth = 3;
                 this.usePositionalEvaluation = true;
                 break;
             case 'hard':
-                this.searchDepth = 4;
+                this.maxDepth = 4;
                 this.usePositionalEvaluation = true;
                 break;
             default:
-                this.searchDepth = 3;
+                this.maxDepth = 3;
                 this.usePositionalEvaluation = true;
         }
     }
 
-    // 最善手を選択
     getBestMove(board) {
-        const startTime = Date.now();
+        this.moveCount++;
+        this.startTime = Date.now();
+        console.group(`===== 第${this.moveCount}手の思考開始 =====`);
+
+        // 反復深化法の実装
+        let currentDepth = 1;
         let bestMove = null;
         let bestScore = -Infinity;
 
-        // 可能な手をすべて生成
         const possibleMoves = this.generateAllMoves(board, false);
 
-        // 各手を評価
+        // 即詰みの手があれば即座に返す
         for (const move of possibleMoves) {
             const boardCopy = board.cloneBoard();
             this.makeMove(boardCopy, move);
+            if (boardCopy.isCheckmate(true)) {
+                console.log('即詰みの手を発見');
+                return move;
+            }
+        }
 
-            // ミニマックス法で評価値を計算
-            const score = this.minimax(boardCopy, this.searchDepth - 1, -Infinity, Infinity, true);
+        try {
+            // 反復深化で探索
+            while (currentDepth <= this.maxDepth) {
+                const result = this.searchWithTimeLimit(board, currentDepth);
+                if (result.timeout) {
+                    break;
+                }
+                bestMove = result.move;
+                bestScore = result.score;
+                currentDepth++;
+            }
+        } catch (e) {
+            if (e.message !== 'timeout') throw e;
+        }
+
+        console.log(`最終深さ: ${currentDepth - 1}, 思考時間: ${Date.now() - this.startTime}ms`);
+        console.groupEnd();
+
+        return bestMove || possibleMoves[0]; // タイムアウトした場合は最初の手を返す
+    }
+
+    searchWithTimeLimit(board, depth) {
+        let bestMove = null;
+        let bestScore = -Infinity;
+        let timeout = false;
+
+        const possibleMoves = this.generateAllMoves(board, false);
+        const movesSortedByValue = this.sortMovesByValue(board, possibleMoves);
+
+        for (const move of movesSortedByValue) {
+            if (Date.now() - this.startTime > this.timeLimit) {
+                timeout = true;
+                break;
+            }
+
+            const boardCopy = board.cloneBoard();
+            this.makeMove(boardCopy, move);
+
+            const score = this.minimax(
+                boardCopy,
+                depth - 1,
+                -Infinity,
+                Infinity,
+                true,
+                Date.now()
+            );
 
             if (score > bestScore) {
                 bestScore = score;
@@ -50,14 +103,41 @@ export class ShogiAI {
             }
         }
 
-        const endTime = Date.now();
-        console.log(`AI思考時間: ${endTime - startTime}ms`);
-
-        return bestMove;
+        return { move: bestMove, score: bestScore, timeout };
     }
 
-    // ミニマックス法（アルファベータ探索）の実装
-    minimax(board, depth, alpha, beta, isMaximizingPlayer) {
+    // 手を評価値でソート
+    sortMovesByValue(board, moves) {
+        return moves.sort((a, b) => {
+            const scoreA = this.getQuickMoveScore(board, a);
+            const scoreB = this.getQuickMoveScore(board, b);
+            return scoreB - scoreA;
+        });
+    }
+
+    // 手の簡易評価（キャプチャー > 成り > その他）
+    getQuickMoveScore(board, move) {
+        let score = 0;
+
+        if (move.type === 'move') {
+            const targetPiece = board.getPiece(move.to[0], move.to[1]);
+            if (targetPiece.type !== 0) {
+                score += PieceValues[targetPiece.type] * 10;
+            }
+            if (move.promote) {
+                score += 5;
+            }
+        }
+
+        return score;
+    }
+
+    minimax(board, depth, alpha, beta, isMaximizingPlayer, startTime) {
+        // 時間制限のチェック
+        if (Date.now() - startTime > this.timeLimit) {
+            throw new Error('timeout');
+        }
+
         // 終端ノードの評価
         if (depth === 0 || this.isGameOver(board)) {
             return this.evaluatePosition(board);
@@ -65,58 +145,93 @@ export class ShogiAI {
 
         const possibleMoves = this.generateAllMoves(board, isMaximizingPlayer);
 
+        // 手の並び替えによる枝刈りの効率化
+        const sortedMoves = this.sortMovesByValue(board, possibleMoves);
+
         if (isMaximizingPlayer) {
             let maxScore = -Infinity;
-            for (const move of possibleMoves) {
+            for (const move of sortedMoves) {
                 const boardCopy = board.cloneBoard();
                 this.makeMove(boardCopy, move);
-                const score = this.minimax(boardCopy, depth - 1, alpha, beta, false);
+                const score = this.minimax(boardCopy, depth - 1, alpha, beta, false, startTime);
                 maxScore = Math.max(maxScore, score);
                 alpha = Math.max(alpha, score);
-                if (beta <= alpha) break; // アルファベータカット
+                if (beta <= alpha) break;
             }
             return maxScore;
         } else {
             let minScore = Infinity;
-            for (const move of possibleMoves) {
+            for (const move of sortedMoves) {
                 const boardCopy = board.cloneBoard();
                 this.makeMove(boardCopy, move);
-                const score = this.minimax(boardCopy, depth - 1, alpha, beta, true);
+                const score = this.minimax(boardCopy, depth - 1, alpha, beta, true, startTime);
                 minScore = Math.min(minScore, score);
                 beta = Math.min(beta, score);
-                if (beta <= alpha) break; // アルファベータカット
+                if (beta <= alpha) break;
             }
             return minScore;
         }
     }
 
+
     // 局面の評価関数
     evaluatePosition(board) {
         let score = 0;
+        console.group('局面評価');
 
         // 材料価値の評価
-        score += this.evaluateMaterial(board);
+        const materialScore = this.evaluateMaterial(board);
+        console.log(`材料価値: ${materialScore}`);
+        score += materialScore;
 
         // 位置の評価
         if (this.usePositionalEvaluation) {
-            score += this.evaluatePositional(board);
+            const positionalScore = this.evaluatePositional(board);
+            console.log(`位置評価: ${positionalScore}`);
+            score += positionalScore;
         }
 
         // 王の安全度評価
-        score += this.evaluateKingSafety(board);
+        const kingSafetyScore = this.evaluateKingSafety(board);
+        console.log(`王の安全度: ${kingSafetyScore}`);
+        score += kingSafetyScore;
 
         // 機動力の評価
-        score += this.evaluateMobility(board);
+        const mobilityScore = this.evaluateMobility(board);
+        console.log(`機動力: ${mobilityScore}`);
+        score += mobilityScore;
 
         // 持ち駒の評価
-        score += this.evaluateCapturedPieces(board);
+        const capturedScore = this.evaluateCapturedPieces(board);
+        console.log(`持ち駒評価: ${capturedScore}`);
+        score += capturedScore;
 
+        console.log(`総合評価: ${score}`);
+        console.groupEnd();
         return score;
+    }
+
+    // 手を読みやすい形式に変換するヘルパーメソッド
+    formatMove(move) {
+        if (!move) return 'なし';
+
+        if (move.type === 'move') {
+            const from = `${9 - move.from[1]}${move.from[0] + 1}`;
+            const to = `${9 - move.to[1]}${move.to[0] + 1}`;
+            const piece = move.piece ? PieceKanji[move.piece.type] : '駒';
+            return `${from}${piece}→${to}${move.promote ? '成' : ''}`;
+        } else if (move.type === 'drop') {
+            const to = `${9 - move.to[1]}${move.to[0] + 1}`;
+            const piece = PieceKanji[move.piece.type];
+            return `持ち駒${piece}→${to}`;
+        }
+        return '不明な手';
     }
 
     // 材料価値の評価
     evaluateMaterial(board) {
         let score = 0;
+        console.group('材料価値の詳細');
 
         // 盤上の駒の評価
         for (let row = 0; row < 9; row++) {
@@ -124,19 +239,40 @@ export class ShogiAI {
                 const piece = board.getPiece(row, col);
                 if (piece.type !== PieceType.EMPTY) {
                     const value = PieceValues[piece.type];
-                    score += piece.isPlayer ? -value : value;
+                    const contribution = piece.isPlayer ? -value : value;
+                    if (value > 0) {
+                        console.log(
+                            `${9 - col}${row + 1}の${PieceKanji[piece.type]}: ${contribution}`
+                        );
+                    }
+                    score += contribution;
                 }
             }
         }
 
         // 持ち駒の評価
-        for (const piece of board.capturedPieces.opponent) {
-            score += PieceValues[piece.type];
-        }
-        for (const piece of board.capturedPieces.player) {
-            score -= PieceValues[piece.type];
+        if (board.capturedPieces.opponent.length > 0) {
+            console.group('相手の持ち駒');
+            board.capturedPieces.opponent.forEach(piece => {
+                const value = PieceValues[piece.type];
+                console.log(`${PieceKanji[piece.type]}: +${value}`);
+                score += value;
+            });
+            console.groupEnd();
         }
 
+        if (board.capturedPieces.player.length > 0) {
+            console.group('自分の持ち駒');
+            board.capturedPieces.player.forEach(piece => {
+                const value = PieceValues[piece.type];
+                console.log(`${PieceKanji[piece.type]}: -${value}`);
+                score -= value;
+            });
+            console.groupEnd();
+        }
+
+        console.log(`材料価値の合計: ${score}`);
+        console.groupEnd();
         return score;
     }
 
