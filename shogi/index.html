@@ -23,15 +23,29 @@
 
             <div class="board-container">
                 <div class="rank-labels">
-                    <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div>
-                    <div>六</div><div>七</div><div>八</div><div>九</div>
+                    <div>一</div>
+                    <div>二</div>
+                    <div>三</div>
+                    <div>四</div>
+                    <div>五</div>
+                    <div>六</div>
+                    <div>七</div>
+                    <div>八</div>
+                    <div>九</div>
                 </div>
 
                 <div id="board" class="board"></div>
 
                 <div class="file-labels">
-                    <div>9</div><div>8</div><div>7</div><div>6</div><div>5</div>
-                    <div>4</div><div>3</div><div>2</div><div>1</div>
+                    <div>9</div>
+                    <div>8</div>
+                    <div>7</div>
+                    <div>6</div>
+                    <div>5</div>
+                    <div>4</div>
+                    <div>3</div>
+                    <div>2</div>
+                    <div>1</div>
                 </div>
             </div>
 
@@ -39,19 +53,29 @@
                 <div class="captured-label">持ち駒</div>
                 <div id="playerCapturedGrid" class="captured-grid"></div>
             </div>
-        </div>
-    </div>
 
-    <div id="promotionDialog" class="promotion-dialog">
-        <div class="promotion-content">
-            <p>駒を成りますか？</p>
-            <div class="promotion-buttons"></div>
+            <!-- 追加：AI思考ログ表示エリア -->
+            <div id="aiLog" class="ai-log-container">
+                <div class="ai-log-header">AI思考ログ</div>
+                <div id="aiLogContent" class="ai-log-content"></div>
+            </div>
         </div>
-    </div>
 
-    <div id="gameOverDialog" class="game-over-dialog">
-        <div class="game-over-content">
-            <div id="gameOverMessage"></div>
+        <div id="promotionDialog" class="promotion-dialog">
+            <div class="promotion-content">
+                <p>駒を成りますか？</p>
+                <div class="promotion-buttons">
+                    <button id="promoteYes">はい</button>
+                    <button id="promoteNo">いいえ</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="gameOverDialog" class="game-over-dialog">
+            <div class="game-over-content">
+                <div id="gameOverMessage"></div>
+                <button>新しいゲーム</button>
+            </div>
         </div>
     </div>
 
