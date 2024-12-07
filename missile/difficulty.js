@@ -8,14 +8,18 @@ class DifficultySystem {
         this.baseSpeed = 1.5;
         this.baseMissileTypes = ['normal'];
 
-        // 難易度レベルのしきい値
+        // 難易度レベルのしきい値を10段階に拡張
         this.difficultyThresholds = [
-            { score: 0, level: 1 },
-            { score: 1000, level: 2 },
-            { score: 3000, level: 3 },
-            { score: 5000, level: 4 },
-            { score: 8000, level: 5 },
-            { score: 12000, level: 6 }
+            { score: 0, level: 1 },      // 基本レベル：通常ミサイルのみ
+            { score: 1000, level: 2 },   // ジグザグミサイル追加
+            { score: 2500, level: 3 },   // 高速ミサイル追加
+            { score: 4000, level: 4 },   // 大型ミサイル追加
+            { score: 6000, level: 5 },   // 分裂ミサイル追加
+            { score: 8000, level: 6 },   // ボスキャラクター（爆撃機）登場
+            { score: 10000, level: 7 },  // 速度とスポーン率が更に上昇
+            { score: 12500, level: 8 },  // より高密度な攻撃パターン
+            { score: 15000, level: 9 },  // 極めて高い難易度
+            { score: 20000, level: 10 }  // 最高難易度
         ];
     }
 
@@ -29,27 +33,37 @@ class DifficultySystem {
         return 1;
     }
 
-    // ミサイル生成確率を取得
+    // ミサイル生成確率を取得（レベルに応じて指数関数的に増加）
     getSpawnRate(score) {
         const level = this.getCurrentLevel(score);
-        return this.baseSpawnRate * (1 + (level - 1) * 0.2);
+        return this.baseSpawnRate * (1 + (level - 1) * 0.15);
     }
 
-    // ミサイルの速度を取得
+    // ミサイルの速度を取得（レベルに応じて段階的に上昇）
     getMissileSpeed(score) {
         const level = this.getCurrentLevel(score);
-        return this.baseSpeed * (1 + (level - 1) * 0.15);
+        return this.baseSpeed * (1 + (level - 1) * 0.12);
     }
 
-    // ミサイルの種類を取得
+    // ミサイルの種類を取得（レベルに応じて段階的に解放）
     getMissileTypes(score) {
         const level = this.getCurrentLevel(score);
         const types = ['normal'];
 
-        if (level >= 3) types.push('fast');
-        if (level >= 4) types.push('large');
-        if (level >= 5) types.push('splitting');
-        if (level >= 2) types.push('zigzag'); // ジグザグミサイルは比較的早い段階で登場
+        if (level >= 2) types.push('zigzag');    // レベル2で解放
+        if (level >= 3) types.push('fast');      // レベル3で解放
+        if (level >= 4) types.push('large');     // レベル4で解放
+        if (level >= 5) types.push('splitting'); // レベル5で解放
+
+        // レベル7以降は特定のミサイルタイプの出現確率が上昇
+        if (level >= 7) {
+            types.push(...['fast', 'splitting']); // 高速・分裂ミサイルの出現確率を上げる
+        }
+
+        // レベル9以降はさらに危険なミサイルの出現確率が上昇
+        if (level >= 9) {
+            types.push(...['large', 'splitting', 'splitting']); // 大型・分裂ミサイルの出現確率をさらに上げる
+        }
 
         return types;
     }

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>リバーシ vs コンピュータ</title>
+    <style>
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(8, 50px);
+            grid-template-rows: repeat(8, 50px);
+            gap: 1px;
+            background-color: #000;
+            padding: 8px;
+            border: 1px solid #000;
+        }
+        .cell {
+            width: 50px;
+            height: 50px;
+            background-color: #008000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+        .disc {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        .black {
+            background-color: #000;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        }
+        .white {
+            background-color: #fff;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        }
+        .valid-move::after {
+            content: '';
+            width: 10px;
+            height: 10px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 50%;
+        }
+        .status {
+            margin: 20px 0;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+        .score {
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        button {
+            margin: 10px;
+            padding: 8px 16px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .thinking {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>リバーシ</h1>
+        <div class="status">あなた（黒）の番です</div>
+        <div class="score">
+            黒（あなた）: <span id="blackScore">2</span>
+            白（コンピュータ）: <span id="whiteScore">2</span>
+        </div>
+        <div class="board" id="board"></div>
+        <div class="controls">
+            <button onclick="resetGame()">ゲームをリセット</button>
+        </div>
+    </div>
+    <div id="thinking" class="thinking">考え中...</div>
+
+    <script>
+        const BOARD_SIZE = 8;
+        const EMPTY = 0;
+        const BLACK = 1; // プレイヤー
+        const WHITE = 2; // コンピュータ
+
+        let currentPlayer = BLACK;
+        let board = [];
+        let gameOver = false;
+
+        // マスの重要度を表す重みづけマップ
+        const WEIGHT_MAP = [
+            [120, -20,  20,   5,   5,  20, -20, 120],
+            [-20, -40,  -5,  -5,  -5,  -5, -40, -20],
+            [ 20,  -5,  15,   3,   3,  15,  -5,  20],
+            [  5,  -5,   3,   3,   3,   3,  -5,   5],
+            [  5,  -5,   3,   3,   3,   3,  -5,   5],
+            [ 20,  -5,  15,   3,   3,  15,  -5,  20],
+            [-20, -40,  -5,  -5,  -5,  -5, -40, -20],
+            [120, -20,  20,   5,   5,  20, -20, 120]
+        ];
+
+        function initializeBoard() {
+            board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(EMPTY));
+            const mid = BOARD_SIZE / 2;
+            board[mid-1][mid-1] = WHITE;
+            board[mid-1][mid] = BLACK;
+            board[mid][mid-1] = BLACK;
+            board[mid][mid] = WHITE;
+        }
+
+        function createBoard() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
+
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                for (let j = 0; j < BOARD_SIZE; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+                    cell.addEventListener('click', () => makeMove(i, j));
+                    boardElement.appendChild(cell);
+                }
+            }
+            updateBoard();
+        }
+
+        function updateBoard() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const row = parseInt(cell.dataset.row);
+                const col = parseInt(cell.dataset.col);
+                cell.innerHTML = '';
+                cell.classList.remove('valid-move');
+
+                if (board[row][col] !== EMPTY) {
+                    const disc = document.createElement('div');
+                    disc.className = `disc ${board[row][col] === BLACK ? 'black' : 'white'}`;
+                    cell.appendChild(disc);
+                } else if (!gameOver && currentPlayer === BLACK && isValidMove(row, col, BLACK)) {
+                    cell.classList.add('valid-move');
+                }
+            });
+
+            updateScore();
+            updateStatus();
+        }
+
+        function updateScore() {
+            let blackCount = 0;
+            let whiteCount = 0;
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                for (let j = 0; j < BOARD_SIZE; j++) {
+                    if (board[i][j] === BLACK) blackCount++;
+                    if (board[i][j] === WHITE) whiteCount++;
+                }
+            }
+            document.getElementById('blackScore').textContent = blackCount;
+            document.getElementById('whiteScore').textContent = whiteCount;
+        }
+
+        function updateStatus() {
+            const status = document.querySelector('.status');
+            if (gameOver) {
+                const blackCount = parseInt(document.getElementById('blackScore').textContent);
+                const whiteCount = parseInt(document.getElementById('whiteScore').textContent);
+                if (blackCount > whiteCount) {
+                    status.textContent = 'あなたの勝利！';
+                } else if (whiteCount > blackCount) {
+                    status.textContent = 'コンピュータの勝利！';
+                } else {
+                    status.textContent = '引き分け！';
+                }
+            } else {
+                status.textContent = currentPlayer === BLACK ? 'あなた（黒）の番です' : 'コンピュータ（白）の番です';
+            }
+        }
+
+        function showThinking(show) {
+            document.getElementById('thinking').style.display = show ? 'block' : 'none';
+        }
+
+        function isValidMove(row, col, player) {
+            if (board[row][col] !== EMPTY) return false;
+
+            const directions = [
+                [-1, -1], [-1, 0], [-1, 1],
+                [0, -1],           [0, 1],
+                [1, -1],  [1, 0],  [1, 1]
+            ];
+
+            return directions.some(([dx, dy]) => {
+                return checkDirection(row, col, dx, dy, player);
+            });
+        }
+
+        function checkDirection(row, col, dx, dy, player) {
+            let x = row + dx;
+            let y = col + dy;
+            let foundOpponent = false;
+
+            while (x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE) {
+                if (board[x][y] === EMPTY) return false;
+                if (board[x][y] === player) return foundOpponent;
+                foundOpponent = true;
+                x += dx;
+                y += dy;
+            }
+            return false;
+        }
+
+        function flipDiscs(row, col, player) {
+            const directions = [
+                [-1, -1], [-1, 0], [-1, 1],
+                [0, -1],           [0, 1],
+                [1, -1],  [1, 0],  [1, 1]
+            ];
+
+            let flipped = 0;
+            directions.forEach(([dx, dy]) => {
+                if (checkDirection(row, col, dx, dy, player)) {
+                    let x = row + dx;
+                    let y = col + dy;
+                    while (board[x][y] !== player) {
+                        board[x][y] = player;
+                        flipped++;
+                        x += dx;
+                        y += dy;
+                    }
+                }
+            });
+            return flipped;
+        }
+
+        function getValidMoves(player) {
+            const moves = [];
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                for (let j = 0; j < BOARD_SIZE; j++) {
+                    if (isValidMove(i, j, player)) {
+                        moves.push([i, j]);
+                    }
+                }
+            }
+            return moves;
+        }
+
+        function evaluatePosition(row, col, player) {
+            // 基本スコア（マスの重要度）
+            let score = WEIGHT_MAP[row][col];
+
+            // 返せる石の数も評価に加える
+            const boardCopy = board.map(row => [...row]);
+            const flipped = flipDiscs(row, col, player);
+            score += flipped * 2;
+
+            // ボードを元に戻す
+            board = boardCopy;
+
+            return score;
+        }
+
+        function computerMove() {
+            showThinking(true);
+            setTimeout(() => {
+                const validMoves = getValidMoves(WHITE);
+                if (validMoves.length === 0) {
+                    currentPlayer = BLACK;
+                    if (getValidMoves(BLACK).length === 0) {
+                        gameOver = true;
+                    }
+                } else {
+                    let bestScore = -Infinity;
+                    let bestMove = validMoves[0];
+
+                    validMoves.forEach(([row, col]) => {
+                        const score = evaluatePosition(row, col, WHITE);
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestMove = [row, col];
+                        }
+                    });
+
+                    const [row, col] = bestMove;
+                    board[row][col] = WHITE;
+                    flipDiscs(row, col, WHITE);
+                    currentPlayer = BLACK;
+
+                    if (getValidMoves(BLACK).length === 0) {
+                        currentPlayer = WHITE;
+                        if (getValidMoves(WHITE).length === 0) {
+                            gameOver = true;
+                        }
+                    }
+                }
+                showThinking(false);
+                updateBoard();
+            }, 1000); // コンピュータの思考時間を演出
+        }
+
+        function makeMove(row, col) {
+            if (gameOver || currentPlayer !== BLACK || !isValidMove(row, col, BLACK)) return;
+
+            board[row][col] = BLACK;
+            flipDiscs(row, col, BLACK);
+            currentPlayer = WHITE;
+            updateBoard();
+
+            if (!gameOver) {
+                setTimeout(computerMove, 500);
+            }
+        }
+
+        function resetGame() {
+            currentPlayer = BLACK;
+            gameOver = false;
+            initializeBoard();
+            updateBoard();
+        }
+
+        // ゲーム開始
+        initializeBoard();
+        createBoard();
+    </script>
+</body>
+</html>

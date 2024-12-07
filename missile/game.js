@@ -3,6 +3,7 @@ import { Explosion } from './particle.js';
 import { AegisSystem } from './aegis.js';
 import { DifficultySystem, FastMissile, LargeMissile, SplittingMissile, ZigzagMissile } from './difficulty.js';
 import { BomberSystem } from './bomber.js';
+import { GameAudio } from './audio.js';
 
 class Game {
     constructor() {
@@ -11,6 +12,9 @@ class Game {
         this.scoreElement = document.getElementById('score');
         this.livesElement = document.getElementById('lives');
         this.startButton = document.getElementById('startButton');
+
+        // 音声システムの初期化
+        this.audio = new GameAudio();
 
         // マウス関連の変数
         this.isMouseDown = false;
@@ -35,6 +39,10 @@ class Game {
             height: 30,
             color: '#4CAF50'
         };
+
+        // 発射間隔の基本値を設定
+        this.baseShotCooldown = 300; // 基本の発射間隔（ミリ秒）
+        this.lastShotTime = 0;
 
         // イージスシステム
         this.aegisSystem = new AegisSystem(this.launcher);
@@ -102,17 +110,54 @@ class Game {
         this.gameLoop();
     }
 
+    calculateShotCooldown() {
+        const currentLevel = this.difficultySystem.getCurrentLevel(this.score);
+        return Math.max(100, this.baseShotCooldown - (currentLevel - 1) * 20);
+    }
+
+    fireInterceptor(angleOffset) {
+        const dx = this.mouseX - this.launcher.x;
+        const dy = this.mouseY - this.launcher.y;
+        const baseAngle = Math.atan2(dy, dx);
+
+        const angleInRadians = (angleOffset * Math.PI) / 180;
+        const finalAngle = baseAngle + angleInRadians;
+
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const targetX = this.launcher.x + Math.cos(finalAngle) * distance;
+        const targetY = this.launcher.y + Math.sin(finalAngle) * distance;
+
+        this.interceptors.push(new Interceptor(
+            this.launcher.x,
+            this.launcher.y,
+            targetX,
+            targetY
+        ));
+    }
+
     shoot() {
         if (!this.gameRunning || !this.isMouseDown) return;
 
         const currentTime = Date.now();
-        if (currentTime - this.lastShotTime >= this.shotCooldown) {
-            this.interceptors.push(new Interceptor(
+        const shotCooldown = this.calculateShotCooldown();
+        const currentLevel = this.difficultySystem.getCurrentLevel(this.score);
+
+        if (currentTime - this.lastShotTime >= shotCooldown) {
+            if (currentLevel >= 4) {
+                this.fireInterceptor(-10);
+                this.fireInterceptor(0);
+                this.fireInterceptor(10);
+            } else {
+                this.fireInterceptor(0);
+            }
+
+            this.explosions.push(new Explosion(
                 this.launcher.x,
                 this.launcher.y,
-                this.mouseX,
-                this.mouseY
+                'interceptor'
             ));
+            this.audio.playExplosionSound('interceptor');
+
             this.lastShotTime = currentTime;
         }
     }
@@ -122,10 +167,7 @@ class Game {
         this.score = newScore;
         this.scoreElement.textContent = this.score;
 
-        // 5000点ごとにイージスシステムを起動
-        if (Math.floor(this.score / 5000) > Math.floor(oldScore / 5000)) {
-            this.aegisSystem.activate();
-        }
+        this.aegisSystem.update(this.missiles, this.interceptors, this.explosions, this.score);
     }
 
     updateDifficultyDisplay() {
@@ -206,10 +248,8 @@ class Game {
         this.shoot();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // イージスシステムの更新
-        this.aegisSystem.update(this.missiles, this.interceptors, this.explosions);
+        this.aegisSystem.update(this.missiles, this.interceptors, this.explosions, this.score);
 
-        // 爆撃機システムの更新
         const currentTime = Date.now();
         const currentLevel = this.difficultySystem.getCurrentLevel(this.score);
 
@@ -223,21 +263,24 @@ class Game {
                     this.lives--;
                     this.livesElement.textContent = this.lives;
                     this.explosions.push(new Explosion(bomb.x, bomb.y, 'damage'));
+                    this.audio.playExplosionSound('damage');
                     if (this.lives <= 0) {
                         this.gameOver();
                     }
                 },
                 onBombIntercepted: (bomb, interceptor) => {
-                    this.updateScore(this.score + 100);  // 爆弾の撃墜で100点
+                    this.updateScore(this.score + 100);
                     this.explosions.push(new Explosion(bomb.x, bomb.y, 'normal'));
+                    this.audio.playExplosionSound('normal');
                 },
                 onBomberDestroyed: (bomber) => {
-                    this.updateScore(this.score + 1000);  // 爆撃機の撃墜で1000点
+                    this.updateScore(this.score + 1000);
                     this.explosions.push(new Explosion(
                         bomber.x + bomber.width/2,
                         bomber.y + bomber.height/2,
                         'damage'
                     ));
+                    this.audio.playExplosionSound('damage');
                 },
                 onBomberDamaged: (bomber) => {
                     this.explosions.push(new Explosion(
@@ -245,14 +288,13 @@ class Game {
                         bomber.y + bomber.height/2,
                         'normal'
                     ));
+                    this.audio.playExplosionSound('normal');
                 }
             }
         );
 
-        // 爆撃機システムの描画
         this.bomberSystem.draw(this.ctx);
 
-        // 難易度に応じたミサイルの生成
         const spawnRate = this.difficultySystem.getSpawnRate(this.score);
         if (Math.random() < spawnRate) {
             const newMissile = this.createNewMissile();
@@ -260,17 +302,16 @@ class Game {
             this.missiles.push(newMissile);
         }
 
-        // ミサイルの更新と衝突判定
         this.missiles = this.missiles.filter(missile => {
-            missile.update(this.missiles); // SplittingMissile用に引数を追加
+            missile.update(this.missiles);
             missile.draw(this.ctx);
 
-            // 防衛ラインを越えた場合
             const defenseLine = this.canvas.height - 100;
             if (missile.y > defenseLine && missile.isInViewport(this.canvas)) {
                 this.lives--;
                 this.livesElement.textContent = this.lives;
                 this.explosions.push(new Explosion(missile.x, missile.y, 'damage'));
+                this.audio.playExplosionSound('damage');
                 if (this.lives <= 0) {
                     this.gameOver();
                 }
@@ -284,12 +325,14 @@ class Game {
                         missile.health--;
                         if (missile.health > 0) {
                             this.explosions.push(new Explosion(missile.x, missile.y, 'normal'));
+                            this.audio.playExplosionSound('normal');
                             return true;
                         }
                     }
                     hit = true;
                     this.updateScore(this.score + this.calculateScore(missile));
                     this.explosions.push(new Explosion(missile.x, missile.y, 'normal'));
+                    this.audio.playExplosionSound('normal');
                     return false;
                 }
                 return true;
@@ -297,14 +340,12 @@ class Game {
             return !hit;
         });
 
-        // 迎撃ミサイルの更新
         this.interceptors = this.interceptors.filter(interceptor => {
             interceptor.update(this.missiles);
             interceptor.draw(this.ctx);
             return interceptor.isInViewport(this.canvas);
         });
 
-        // 爆発エフェクトの更新
         this.explosions = this.explosions.filter(explosion => {
             explosion.update();
             explosion.draw(this.ctx);
@@ -318,7 +359,6 @@ class Game {
     }
 }
 
-// ゲームの開始
 document.addEventListener('DOMContentLoaded', () => {
     new Game();
 });

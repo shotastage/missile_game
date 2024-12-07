@@ -200,7 +200,7 @@ export class BomberSystem {
         this.canvas = canvas;
         this.bomber = null;
         this.bombs = [];
-        this.spawnInterval = 30000; // 30秒ごとに出現
+        this.spawnInterval = 10000; // 10秒ごとに出現
         this.lastSpawnTime = 0;
         this.minimumLevel = 6;
     }
@@ -216,19 +216,24 @@ export class BomberSystem {
         // 爆撃機の更新
         if (this.bomber) {
             if (!this.bomber.destroyed) {
-                if (!this.bomber.update(currentTime, this.bombs)) {
+                const bomberActive = this.bomber.update(currentTime, this.bombs);
+
+                // 画面外に出た場合は新しい爆撃機を生成できるようにする
+                if (!bomberActive) {
                     this.bomber = null;
+                    this.lastSpawnTime = currentTime; // 最終出現時間を更新
                 }
 
                 // 迎撃ミサイルとの衝突判定
                 for (let i = interceptors.length - 1; i >= 0; i--) {
                     const interceptor = interceptors[i];
-                    if (this.bomber.checkCollision(interceptor)) {
+                    if (this.bomber && this.bomber.checkCollision(interceptor)) {
                         if (this.bomber.health <= 1) {
                             // 爆撃機が破壊された
                             this.bomber.destroyed = true;
                             gameCallbacks.onBomberDestroyed(this.bomber);
                             this.bomber = null;
+                            this.lastSpawnTime = currentTime; // 最終出現時間を更新
                         } else {
                             // ダメージを与える
                             this.bomber.health--;
@@ -239,6 +244,8 @@ export class BomberSystem {
                         break;
                     }
                 }
+            } else {
+                this.bomber = null;
             }
         }
 
@@ -255,7 +262,7 @@ export class BomberSystem {
                 continue;
             }
 
-            // 迎撃ミサイルとの衝突判定を改善
+            // 迎撃ミサイルとの衝突判定
             for (let j = interceptors.length - 1; j >= 0; j--) {
                 const interceptor = interceptors[j];
                 if (!bomb.destroyed && bomb.checkCollision(interceptor)) {

@@ -2,23 +2,97 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>ミサイル防衛ゲーム</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ミニゲームメニュー</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            background: #f0f0f0;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .game-link {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            max-width: 320px;
+            padding: 15px 30px;
+            background: #4a90e2;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: clamp(16px, 4vw, 18px);
+            transition: all 0.3s ease;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .game-link:hover {
+            background: #357abd;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* タッチデバイス用の最適化 */
+        @media (hover: none) {
+            .game-link:active {
+                background: #357abd;
+                transform: translateY(1px);
+            }
+        }
+
+        /* 小さい画面用の調整 */
+        @media (max-width: 480px) {
+            .container {
+                gap: 16px;
+            }
+
+            .game-link {
+                padding: 12px 24px;
+            }
+        }
+
+        /* ダークモード対応 */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #1a1a1a;
+            }
+
+            .game-link {
+                background: #5a9ee2;
+            }
+
+            .game-link:hover {
+                background: #4589d0;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div id="gameInfo">
-        スコア: <span id="score">0</span> |
-        ライフ: <span id="lives">3</span>
-        <div id="aegisStatus">
-            AEGIS SYSTEM ACTIVE: <span id="aegisTimer">10.0</span>s
-        </div>
+    <div class="container">
+        <a href="/simple-mini-game/missile/" class="game-link">ミサイル防衛ゲーム</a>
+        <a href="/simple-mini-game/missile_hard/" class="game-link">ミサイル防衛ゲーム - ハードモード</a>
+        <a href="/simple-mini-game/tet/" class="game-link">シンプルブロック崩し</a>
+        <a href="/simple-mini-game/reversi/" class="game-link">リバーシ</a>
+        <a href="/simple-mini-game/shogi/" class="game-link">将棋</a>
+
     </div>
-
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <button id="startButton">ゲームスタート</button>
-
-    <div id="aegisWarning"></div>
-
-    <script type="module" src="game.js"></script>
 </body>
 </html>

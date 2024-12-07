@@ -35,17 +35,23 @@ body {
 }
 
 #aegisStatus {
-    margin-top: 5px;
-    font-weight: bold;
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    font-size: 14px;
+    background-color: rgba(0, 255, 0, 0.1);
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid rgba(0, 255, 0, 0.3);
     text-shadow: 0 0 5px #00ff00;
     color: #00ff00;
-    display: none;
+    z-index: 1000;
 }
 
 @keyframes aegisGlow {
-    0% { text-shadow: 0 0 5px #00ff00; }
-    50% { text-shadow: 0 0 20px #00ff00; }
-    100% { text-shadow: 0 0 5px #00ff00; }
+    0% { border-color: rgba(0, 255, 0, 0.3); }
+    50% { border-color: rgba(0, 255, 0, 0.8); }
+    100% { border-color: rgba(0, 255, 0, 0.3); }
 }
 
 .aegis-active {
@@ -53,21 +59,22 @@ body {
 }
 
 #aegisWarning {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.8);
+    border: 1px solid #00ff00;
+    padding: 10px;
+    border-radius: 5px;
     color: #00ff00;
     font-family: Arial, sans-serif;
-    font-size: 24px;
+    font-size: 14px;
     font-weight: bold;
     text-align: center;
-    text-shadow: 0 0 10px #00ff00;
+    text-shadow: 0 0 5px #00ff00;
     z-index: 1000;
-    display: none;
+    transition: opacity 0.3s ease-in-out;
 }
-
-
 
 #level {
     color: #FFD700;
@@ -75,7 +82,6 @@ body {
     text-shadow: 0 0 5px #FFD700;
 }
 
-/* 新しいミサイルタイプのための視覚的フィードバック */
 @keyframes splitWarning {
     0% { opacity: 1; }
     50% { opacity: 0.5; }
